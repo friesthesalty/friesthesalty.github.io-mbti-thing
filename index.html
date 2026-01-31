@@ -1,0 +1,363 @@
+<!-- VIBECODED ASF-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Function Exclusion Monitor</title>
+    <!-- Import Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #4a90e2;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1, h2 { text-align: center; }
+
+        .intro {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .question-item {
+            background: var(--card-bg);
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: flex-start; 
+            transition: transform 0.1s;
+        }
+
+        .question-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        label {
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: flex-start; /* Aligns checkbox with top line of text */
+        }
+
+        input[type="checkbox"] {
+            margin-right: 15px;
+            margin-top: 5px; /* Slight offset to align with text */
+            transform: scale(1.3); 
+            cursor: pointer;
+            min-width: 20px; 
+        }
+
+        .question-text {
+            font-size: 1.05em;
+        }
+        
+        /* This styles the clarification text */
+        .simplification {
+            display: block; /* Forces a new line */
+            font-size: 0.9em;
+            color: #7f8c8d; /* Grey text */
+            margin-top: 2px;
+            font-style: italic;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #357abd; }
+
+        #results-section {
+            display: none; 
+            margin-top: 30px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        canvas { max-height: 600px; }
+    </style>
+</head>
+<body>
+
+    <div class="intro">
+        <h1>Function Exclusion Monitor</h1>
+        <p><strong>Instructions:</strong> Read the statements below. Check the box if you GENERALLY relate to the statement.</p>
+        <p><em>Note: The questions are randomized. Try not to overthink which "type" the question belongs to.</em></p>
+    </div>
+
+    <div id="quiz-container">
+        <!-- Questions will be injected here by JavaScript -->
+    </div>
+
+    <button onclick="calculateResults()">Calculate Results</button>
+
+    <div id="results-section">
+        <h2>Analysis</h2>
+        <canvas id="resultsChart"></canvas>
+        <div style="margin-top:20px; text-align: center; font-size: 0.9em; color: #666;">
+            Longer bars = Higher Likelihood (Closer to 0).<br>
+            Short bars = High Contradiction (Deep Negative).
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 1. YOUR DATA
+        // ============================================
+        
+        const database = {
+            "Te": [
+                "𝒀𝒐𝒖 𝒇𝒐𝒄𝒖𝒔 𝒐𝒏 𝒔𝒖𝒃𝒋𝒆𝒄𝒕𝒊𝒗𝒆 𝒎𝒆𝒂𝒏𝒊𝒏𝒈 𝒐𝒗𝒆𝒓 𝒆𝒙𝒕𝒆𝒓𝒏𝒂𝒍 𝒇𝒂𝒄𝒕𝒔",
+                "𝒀𝒐𝒖 𝒓𝒆𝒔𝒊𝒔𝒕 𝒓𝒖𝒍𝒆𝒔 𝒐𝒓 𝒔𝒚𝒔𝒕𝒆𝒎𝒔 𝒐𝒇 𝒆𝒇𝒇𝒊𝒄𝒊𝒆𝒏𝒄𝒚",
+                "𝒀𝒐𝒖 𝒅𝒊𝒔𝒍𝒊𝒌𝒆 𝒐𝒓𝒈𝒂𝒏𝒊𝒛𝒊𝒏𝒈 𝒐𝒓 𝒎𝒂𝒏𝒂𝒈𝒊𝒏𝒈 𝒕𝒂𝒔𝒌𝒔",
+                "You focus more on 'why' than 'how'",
+                "𝒀𝒐𝒖 𝒂𝒓𝒆 𝒔𝒘𝒂𝒚𝒆𝒅 𝒃𝒚 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒔 𝒐𝒗𝒆𝒓 𝒆𝒇𝒇𝒆𝒄𝒕𝒊𝒗𝒆𝒏𝒆𝒔𝒔 <span class='simplification'>(i.e. you prioritize feelings even if it makes the plan fail)</span>",
+                "𝒀𝒐𝒖 𝒂𝒗𝒐𝒊𝒅 𝒄𝒐𝒏𝒇𝒓𝒐𝒏𝒕𝒂𝒕𝒊𝒐𝒏 𝒐𝒓 𝒆𝒏𝒇𝒐𝒓𝒄𝒊𝒏𝒈 𝒔𝒕𝒂𝒏𝒅𝒂𝒓𝒅𝒔",
+                "𝒀𝒐𝒖 𝒓𝒆𝒔𝒊𝒔𝒕 𝒑𝒓𝒐𝒅𝒖𝒄𝒕𝒊𝒗𝒊𝒕𝒚 𝒂𝒏𝒅 𝒈𝒐𝒂𝒍 𝒐𝒓𝒊𝒆𝒏𝒕𝒂𝒕𝒊𝒐𝒏",
+                "𝒀𝒐𝒖 𝒂𝒓𝒆 𝒇𝒍𝒆𝒙𝒊𝒃𝒍𝒆 𝒘𝒊𝒕𝒉 𝒕𝒓𝒖𝒕𝒉 𝒅𝒆𝒑𝒆𝒏𝒅𝒊𝒏𝒈 𝒐𝒏 𝒑𝒆𝒓𝒔𝒐𝒏𝒂𝒍 𝒗𝒊𝒆𝒘 <span class='simplification'>(i.e. facts are negotiable based on your perspective)</span>",
+                "𝒀𝒐𝒖 𝒈𝒆𝒕 𝒍𝒐𝒔𝒕 𝒊𝒏 𝒕𝒉𝒆𝒐𝒓𝒚 𝒘𝒊𝒕𝒉𝒐𝒖𝒕 𝒂𝒑𝒑𝒍𝒚𝒊𝒏𝒈 𝒊𝒕",
+                "𝑫𝒊𝒔𝒐𝒓𝒅𝒆𝒓 𝒐𝒓 𝒇𝒍𝒆𝒙𝒊𝒃𝒊𝒍𝒊𝒕𝒚 𝒎𝒂𝒌𝒆 yo𝒖 𝒇𝒆𝒆𝒍 𝒅𝒆𝒆𝒑𝒍𝒚 𝒖𝒏𝒔𝒆𝒕𝒕𝒍𝒆𝒅"
+            ],
+            "Ti": [
+                "𝒀𝒐𝒖 𝒓𝒆𝒍𝒚 𝒐𝒏 𝒇𝒂𝒄𝒕𝒔 𝒕𝒐 𝒆𝒙𝒑𝒍𝒂𝒊𝒏 𝒚𝒐𝒖𝒓𝒔𝒆𝒍𝒇",
+                "𝒀𝒐𝒖 𝒏𝒆𝒆𝒅 𝒈𝒓𝒐𝒖𝒑 𝒂𝒑𝒑𝒓𝒐𝒗𝒂𝒍",
+                "𝒀𝒐𝒖 𝒆𝒂𝒔𝒊𝒍𝒚 𝒉𝒂𝒏𝒅𝒍𝒆 𝒓𝒆𝒂𝒍 𝒘𝒐𝒓𝒍𝒅 𝒕𝒂𝒔𝒌𝒔",
+                "𝒀𝒐𝒖 𝒄𝒐𝒎𝒎𝒖𝒏𝒊𝒄𝒂𝒕𝒆 𝒔𝒊𝒎𝒑𝒍𝒚 𝒂𝒏𝒅 𝒅𝒊𝒓𝒆𝒄𝒕𝒍𝒚 (no overcomplication)",
+                "𝒀𝒐𝒖 𝒔𝒆𝒑𝒂𝒓𝒂𝒕𝒆 𝒊𝒅𝒆𝒂𝒔 𝒇𝒓𝒐𝒎 𝒚𝒐𝒖𝒓 𝒑𝒆𝒓𝒔𝒐𝒏𝒂𝒍 𝒊𝒅𝒆𝒏𝒕𝒊𝒕𝒚 <span class='simplification'>(i.e. you don't take it personally if your logic is disproven)</span>",
+                "𝒀𝒐𝒖 𝒄𝒂𝒏 𝒕𝒖𝒓𝒏 𝒊𝒅𝒆𝒂𝒔 𝒊𝒏𝒕𝒐 𝒓𝒆𝒂𝒍 𝒘𝒐𝒓𝒍𝒅 𝒓𝒆𝒔𝒖𝒍𝒕𝒔",
+                "𝒀𝒐𝒖’𝒓𝒆 𝒏𝒐𝒕 𝒅𝒓𝒂𝒘𝒏 𝒕𝒐 𝒔𝒚𝒎𝒃𝒐𝒍𝒊𝒄 𝒐𝒓 𝒂𝒓𝒄𝒉𝒆𝒕𝒚𝒑𝒂𝒍 𝒕𝒉𝒊𝒏𝒌𝒊𝒏𝒈",
+                "𝒀𝒐𝒖 𝒄𝒐𝒏𝒏𝒆𝒄𝒕 𝒘𝒊𝒕𝒉 𝒑𝒆𝒐𝒑𝒍𝒆 𝒆𝒂𝒔𝒊𝒍𝒚 𝒂𝒏𝒅 𝒏𝒂𝒕𝒖𝒓𝒂𝒍𝒍𝒚",
+                "𝒀𝒐𝒖’𝒓𝒆 𝒂𝒘𝒂𝒓𝒆 𝒐𝒇 𝒉𝒐𝒘 𝒐𝒕𝒉𝒆𝒓𝒔 𝒔𝒆𝒆 𝒚𝒐𝒖 <span class='simplification'>(i.e. you monitor your social image, aware of what you look like)</span>",
+                "𝒀𝒐𝒖 𝒏𝒂𝒕𝒖𝒓𝒂𝒍𝒍𝒚 𝒑𝒓𝒐𝒕𝒆𝒄𝒕 𝒚𝒐𝒖𝒓 𝒎𝒆𝒏𝒕𝒂𝒍 𝒔𝒑𝒂𝒄𝒆 𝒂𝒏𝒅 𝒓𝒆𝒔𝒊𝒔𝒕 𝒑𝒆𝒐𝒑𝒍𝒆 𝒑𝒖𝒔𝒉𝒊𝒏𝒈 𝒊𝒏",
+            ],
+            "Fe": [
+                "𝒀𝒐𝒖 𝒃𝒂𝒔𝒆 𝒚𝒐𝒖𝒓 𝒇𝒆𝒆𝒍𝒊𝒏𝒈𝒔 𝒎𝒂𝒊𝒏𝒍𝒚 𝒐𝒏 𝒊𝒏𝒏𝒆𝒓 𝒆𝒙𝒑𝒆𝒓𝒊𝒆𝒏𝒄𝒆 <span class='simplification'>(i.e. you feel what you feel, regardless of the room's mood)</span>",
+                "𝒀𝒐𝒖 𝒅𝒐𝒏’𝒕 𝒄𝒂𝒓𝒆 𝒂𝒃𝒐𝒖𝒕 𝒄𝒓𝒆𝒂𝒕𝒊𝒏𝒈 𝒉𝒂𝒓𝒎𝒐𝒏𝒚 𝒂𝒓𝒐𝒖𝒏𝒅 𝒚𝒐𝒖",
+                "𝒀𝒐𝒖 𝒉𝒂𝒗𝒆 𝒏𝒐 𝒊𝒏𝒕𝒆𝒓𝒆𝒔𝒕 𝒊𝒏 𝒄𝒐𝒍𝒍𝒆𝒄𝒕𝒊𝒗𝒆 𝒐𝒓 𝒄𝒖𝒍𝒕𝒖𝒓𝒂𝒍 𝒗𝒂𝒍𝒖𝒆𝒔 <span class='simplification'>(i.e. you follow your own code, not society's)</span>",
+                "𝒀𝒐𝒖 𝒔𝒕𝒂𝒚 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒂𝒍𝒍𝒚 𝒄𝒐𝒏𝒔𝒕𝒂𝒏𝒕, 𝒆𝒗𝒆𝒏 𝒂𝒄𝒓𝒐𝒔𝒔 𝒔𝒊𝒕𝒖𝒂𝒕𝒊𝒐𝒏𝒔 <span class='simplification'>(i.e. your mood doesn't change just to match others)</span>",
+                "𝒀𝒐𝒖 𝒅𝒐𝒏’𝒕 𝒄𝒂𝒓𝒆 𝒉𝒐𝒘 𝒚𝒐𝒖𝒓 𝒇𝒆𝒆𝒍𝒊𝒏𝒈𝒔 𝒂𝒇𝒇𝒆𝒄𝒕 𝒐𝒕𝒉𝒆𝒓𝒔",
+                "𝒀𝒐𝒖 𝒗𝒂𝒍𝒖𝒆 𝒍𝒐𝒈𝒊𝒄 𝒐𝒗𝒆𝒓 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒂𝒍 𝒂𝒅𝒋𝒖𝒔𝒕𝒎𝒆𝒏𝒕 <span class='simplification'>(i.e. you won't fake a feeling just to make things smooth)</span>",
+                "𝒀𝒐𝒖 𝒆𝒙𝒑𝒓𝒆𝒔𝒔 𝒚𝒐𝒖𝒓 𝒑𝒆𝒓𝒔𝒐𝒏𝒂𝒍 𝒐𝒑𝒊𝒏𝒊𝒐𝒏𝒔 𝒓𝒆𝒈𝒂𝒓𝒅𝒍𝒆𝒔𝒔 𝒐𝒇 𝒔𝒐𝒄𝒊𝒂𝒍 𝒇𝒊𝒕",
+                "𝒀𝒐𝒖 𝒓𝒂𝒓𝒆𝒍𝒚 𝒇𝒆𝒆𝒍 𝒔𝒐𝒄𝒊𝒂𝒍 𝒐𝒓 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒂𝒍 𝒆𝒙𝒉𝒂𝒖𝒔𝒕𝒊𝒐𝒏 <span class='simplification'>(i.e. dealing with people's emotions doesn't drain you)</span>",
+                "𝒀𝒐𝒖 𝒅𝒐𝒏’𝒕 𝒆𝒙𝒑𝒆𝒓𝒊𝒆𝒏𝒄𝒆 𝒔𝒖𝒅𝒅𝒆𝒏, 𝒏𝒆𝒈𝒂𝒕𝒊𝒗𝒆 𝒊𝒏𝒕𝒓𝒖𝒔𝒊𝒗𝒆 𝒕𝒉𝒐𝒖𝒈𝒉𝒕𝒔 <span class='simplification'>(i.e. you don't get paranoid about your logic failing)</span>",
+                "𝒀𝒐𝒖 𝒔𝒕𝒂𝒚 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒂𝒍𝒍𝒚 𝒔𝒆𝒑𝒂𝒓𝒂𝒕𝒆 𝒇𝒓𝒐𝒎 𝒆𝒙𝒕𝒆𝒓𝒏𝒂𝒍 𝒔𝒊𝒕𝒖𝒂𝒕𝒊𝒐𝒏𝒔 <span class='simplification'>(i.e. you don't absorb other people's stress)</span>"
+            ],
+            "Fi": [
+                "𝐘𝐨𝐮 𝐬𝐡𝐨𝐰 𝐲𝐨𝐮𝐫 𝐟𝐞𝐞𝐥𝐢𝐧𝐠𝐬 𝐨𝐩𝐞𝐧𝐥𝐲 𝐚𝐧𝐝 𝐞𝐚𝐬𝐢𝐥𝐲",
+                "𝐘𝐨𝐮 𝐜𝐚𝐫𝐞 𝐚𝐛𝐨𝐮𝐭 𝐢𝐧𝐟𝐥𝐮𝐞𝐧𝐜𝐢𝐧𝐠 𝐨𝐫 𝐢𝐦𝐩𝐫𝐞𝐬𝐬𝐢𝐧𝐠 𝐨𝐭𝐡𝐞𝐫𝐬",
+                "𝐘𝐨𝐮 𝐰𝐚𝐫𝐦𝐥𝐲 𝐞𝐧𝐠𝐚𝐠𝐞 𝐰𝐢𝐭𝐡 𝐬𝐭𝐫𝐚𝐧𝐠𝐞𝐫𝐬",
+                "𝐘𝐨𝐮'𝐫𝐞 𝐯𝐢𝐬𝐢𝐛𝐥𝐲 𝐞𝐧𝐭𝐡𝐮𝐬𝐢𝐚𝐬𝐭𝐢𝐜 𝐚𝐧𝐝 𝐞𝐦𝐨𝐭𝐢𝐨𝐧𝐚𝐥𝐥𝐲 𝐞𝐱𝐩𝐫𝐞𝐬𝐬𝐢𝐯𝐞",
+                "𝐘𝐨𝐮 𝐩𝐫𝐨𝐜𝐞𝐬𝐬 𝐞𝐦𝐨𝐭𝐢𝐨𝐧𝐬 𝐪𝐮𝐢𝐜𝐤𝐥𝐲 𝐚𝐧𝐝 𝐦𝐨𝐯𝐞 𝐨𝐧",
+                "𝐘𝐨𝐮'𝐫𝐞 𝐞𝐚𝐠𝐞𝐫 𝐭𝐨 𝐦𝐞𝐞𝐭 𝐞𝐦𝐨𝐭𝐢𝐨𝐧𝐚𝐥 𝐧𝐞𝐞𝐝𝐬 𝐢𝐧 𝐭𝐡𝐞 𝐦𝐨𝐦𝐞𝐧𝐭 <span class='simplification'>(i.e. you prioritize others' immediate comfort over your values)</span>",
+                "𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐧𝐨 𝐬𝐞𝐧𝐬𝐞 𝐨𝐟 𝐢𝐧𝐧𝐞𝐫 𝐬𝐲𝐦𝐛𝐨𝐥𝐢𝐜 𝐨𝐫 𝐩𝐞𝐫𝐬𝐨𝐧𝐚𝐥 𝐦𝐞𝐚𝐧𝐢𝐧𝐠",
+                "𝐘𝐨𝐮 𝐝𝐢𝐬𝐥𝐢𝐤𝐞 𝐢𝐧𝐭𝐞𝐧𝐬𝐢𝐭𝐲 𝐚𝐧𝐝 𝐩𝐫𝐞𝐟𝐞𝐫 𝐬𝐮𝐫𝐟𝐚𝐜𝐞 𝐥𝐞𝐯𝐞𝐥 𝐞𝐦𝐨𝐭𝐢𝐨𝐧𝐬",
+                "𝐘𝐨𝐮 𝐝𝐨𝐧'𝐭 𝐞𝐱𝐩𝐞𝐫𝐢𝐞𝐧𝐜𝐞 𝐪𝐮𝐢𝐞𝐭, 𝐡𝐢𝐝𝐝𝐞𝐧 𝐢𝐧𝐧𝐞𝐫 𝐜𝐨𝐧𝐟𝐥𝐢𝐜𝐭𝐬 <span class='simplification'>(i.e. what you see is what you get)</span>",
+                "𝐘𝐨𝐮'𝐫𝐞 𝐢𝐦𝐦𝐮𝐧𝐞 𝐭𝐨 𝐬𝐞𝐜𝐫𝐞𝐭 𝐬𝐞𝐥𝐟 𝐝𝐨𝐮𝐛𝐭 𝐨𝐫 𝐫𝐢𝐯𝐚𝐥𝐫𝐲"
+            ],
+            "Se": [
+                "𝒀𝒐𝒖 𝒅𝒐𝒏’𝒕 𝒍𝒊𝒗𝒆 𝒇𝒐𝒓 𝒅𝒊𝒓𝒆𝒄𝒕, 𝒄𝒐𝒏𝒄𝒓𝒆𝒕𝒆 𝒆𝒙𝒑𝒆𝒓𝒊𝒆𝒏𝒄𝒆𝒔 <span class='simplification'>(i.e. you usually prefer staying home with ideas rather than going out)</span>",
+                "𝒀𝒐𝒖 𝒓𝒆𝒇𝒍𝒆𝒄𝒕 𝒅𝒆𝒆𝒑𝒍𝒚 𝒃𝒆𝒇𝒐𝒓𝒆 𝒂𝒄𝒕𝒊𝒏𝒈 𝒐𝒓 𝒅𝒆𝒄𝒊𝒅𝒊𝒏𝒈",
+                "𝒀𝒐𝒖'𝒓𝒆 𝒎𝒐𝒓𝒆 𝒅𝒓𝒂𝒘𝒏 𝒕𝒐 𝒊𝒅𝒆𝒂𝒔 𝒐𝒓 𝒆𝒎𝒐𝒕𝒊𝒐𝒏𝒔 𝒕𝒉𝒂𝒏 𝒕𝒐 𝒕𝒉𝒆 𝒐𝒖𝒕𝒆𝒓 𝒘𝒐𝒓𝒍𝒅",
+                "𝒀𝒐𝒖 𝒂𝒗𝒐𝒊𝒅 𝒊𝒏𝒕𝒆𝒏𝒔𝒆 𝒐𝒓 𝒐𝒗𝒆𝒓𝒔𝒕𝒊𝒎𝒖𝒍𝒂𝒕𝒊𝒏𝒈 𝒆𝒙𝒑𝒆𝒓𝒊𝒆𝒏𝒄𝒆𝒔",
+                "𝒀𝒐𝒖 𝒅𝒊𝒔𝒕𝒓𝒖𝒔𝒕 𝒓𝒆𝒂𝒍𝒊𝒕𝒚 𝒂𝒏𝒅 𝒓𝒆𝒍𝒚 𝒐𝒏 𝒊𝒏𝒏𝒆𝒓 𝒔𝒊𝒈𝒏𝒂𝒍𝒔",
+                "𝒀𝒐𝒖 𝒅𝒓𝒆𝒔𝒔 𝒐𝒓 𝒃𝒆𝒉𝒂𝒗𝒆 𝒘𝒊𝒕𝒉𝒐𝒖𝒕 𝒓𝒆𝒈𝒂𝒓𝒅 𝒇𝒐𝒓 𝒕𝒉𝒆 𝒎𝒐𝒎𝒆𝒏𝒕 𝒐𝒓 𝒔𝒆𝒕𝒕𝒊𝒏𝒈",
+                "𝒀𝒐𝒖 𝒆𝒂𝒔𝒊𝒍𝒚 𝒅𝒆𝒕𝒂𝒄𝒉 𝒇𝒓𝒐𝒎 𝒐𝒃𝒋𝒆𝒄𝒕𝒔 𝒂𝒏𝒅 𝒆𝒙𝒑𝒆𝒓𝒊𝒆𝒏𝒄𝒆𝒔 <span class='simplification'>(i.e. you aren't materialistic or attached to physical things)</span>",
+                "𝒀𝒐𝒖'𝒓𝒆 𝒂𝒘𝒂𝒓𝒆 𝒐𝒇 𝒚𝒐𝒖𝒓 𝒖𝒏𝒄𝒐𝒏𝒔𝒄𝒊𝒐𝒖𝒔 𝒊𝒎𝒑𝒖𝒍𝒔𝒆𝒔 𝒂𝒏𝒅 𝒄𝒐𝒏𝒇𝒍𝒊𝒄𝒕𝒔 <span class='simplification'>(i.e. you look inward, not outward)</span>",
+                "𝒀𝒐𝒖 𝒑𝒓𝒊𝒐𝒓𝒊𝒕𝒊𝒛𝒆 𝒋𝒖𝒅𝒈𝒎𝒆𝒏𝒕, 𝒓𝒆𝒔𝒕𝒓𝒂𝒊𝒏𝒕, 𝒐𝒓 𝒑𝒍𝒂𝒏𝒏𝒊𝒏𝒈",
+                "𝒀𝒐𝒖 𝒓𝒆𝒔𝒑𝒐𝒏𝒅 𝒘𝒆𝒍𝒍 𝒕𝒐 𝒓𝒂𝒕𝒊𝒐𝒏𝒂𝒍 𝒐𝒓 𝒂𝒏𝒂𝒍𝒚𝒕𝒊𝒄𝒂𝒍 𝒂𝒑𝒑𝒓𝒐𝒂𝒄𝒉𝒆𝒔 𝒊𝒏 𝒄𝒓𝒊𝒔𝒊𝒔 <span class='simplification'>(i.e.  you cope with stress by analyzing, planning, or reasoning through it)</span>",
+            ],
+            "Si": [
+                "𝒀𝒐𝒖 𝒓𝒆𝒂𝒄𝒕 𝒑𝒓𝒐𝒑𝒐𝒓𝒕𝒊𝒐𝒏𝒂𝒍𝒍𝒚 𝒕𝒐 𝒆𝒙𝒕𝒆𝒓𝒏𝒂𝒍 𝒆𝒗𝒆𝒏𝒕𝒔 <span class='simplification'>(i.e you see things exactly as they are, without adding your own subjective filter)</span>",
+                "𝒀𝒐𝒖 𝒆𝒂𝒔𝒊𝒍𝒚 𝒗𝒆𝒓𝒃𝒂𝒍𝒊𝒛𝒆 𝒂𝒏𝒅 𝒆𝒙𝒑𝒍𝒂𝒊𝒏 𝒚𝒐𝒖𝒓 𝒊𝒏𝒏𝒆𝒓 𝒊𝒎𝒑𝒓𝒆𝒔𝒔𝒊𝒐𝒏𝒔. <span class='simplification'>(i.e. you don't struggle to describe how something 'hits' you)</span>",
+                "𝒀𝒐𝒖 𝒏𝒂𝒕𝒖𝒓𝒂𝒍𝒍𝒚 𝒔𝒕𝒂𝒚 𝒊𝒏 𝒕𝒐𝒖𝒄𝒉 𝒘𝒊𝒕𝒉 𝒓𝒆𝒂𝒍𝒊𝒕𝒚",
+                "𝒀𝒐𝒖’𝒓𝒆 𝒆𝒏𝒕𝒉𝒖𝒔𝒊𝒂𝒔𝒕𝒊𝒄 𝒂𝒏𝒅 𝒆𝒂𝒔𝒊𝒍𝒚 𝒆𝒙𝒄𝒊𝒕𝒆𝒅 𝒃𝒚 𝒏𝒐𝒗𝒆𝒍𝒕𝒚",
+                "𝒀𝒐𝒖 𝒓𝒆𝒔𝒊𝒔𝒕 𝒃𝒆𝒊𝒏𝒈 𝒄𝒐𝒏𝒕𝒓𝒐𝒍𝒍𝒆𝒅 𝒐𝒓 𝒆𝒙𝒑𝒍𝒐𝒊𝒕𝒆𝒅 𝒃𝒚 𝒐𝒕𝒉𝒆𝒓𝒔",
+                "𝒀𝒐𝒖 𝒐𝒓𝒈𝒂𝒏𝒊𝒛𝒆 𝒚𝒐𝒖𝒓 𝒊𝒎𝒑𝒓𝒆𝒔𝒔𝒊𝒐𝒏𝒔 𝒘𝒊𝒕𝒉 𝒄𝒍𝒂𝒓𝒊𝒕𝒚 𝒂𝒏𝒅 𝒍𝒐𝒈𝒊𝒄 <span class='simplification'>(i.e. you prioritize making sense over 'sensing' the detail)</span>",
+                "𝒀𝒐𝒖 𝒓𝒆𝒄𝒐𝒈𝒏𝒊𝒛𝒆 𝒚𝒐𝒖𝒓 𝒔𝒖𝒃𝒋𝒆𝒄𝒕𝒊𝒗𝒆 𝒃𝒊𝒂𝒔𝒆𝒔 <span class='simplification'>(i.e. you know your view isn't the only view)</span>",
+                "𝒀𝒐𝒖'𝒓𝒆 𝒅𝒓𝒂𝒘𝒏 𝒕𝒐 𝒄𝒍𝒆𝒂𝒓, 𝒃𝒓𝒊𝒈𝒉𝒕 𝒑𝒐𝒔𝒔𝒊𝒃𝒊𝒍𝒊𝒕𝒊𝒆𝒔, 𝒏𝒐𝒕 𝒔𝒉𝒂𝒅𝒐𝒘𝒚 𝒔𝒖𝒔𝒑𝒊𝒄𝒊𝒐𝒏𝒔 <span class='simplification'>(i.e. you look at what 'could be' rather than what 'has been')</span>",
+                "𝒀𝒐𝒖 𝒅𝒐𝒏’𝒕 𝒒𝒖𝒊𝒆𝒕𝒍𝒚 𝒓𝒆𝒔𝒊𝒈𝒏 𝒚𝒐𝒖𝒓𝒔𝒆𝒍𝒇 𝒕𝒐 𝒂 𝒅𝒖𝒍𝒍 𝒐𝒓 𝒊𝒔𝒐𝒍𝒂𝒕𝒆𝒅 𝒍𝒊𝒇𝒆",
+                "𝒀𝒐𝒖 𝒉𝒂𝒏𝒅𝒍𝒆 𝒖𝒏𝒄𝒐𝒏𝒔𝒄𝒊𝒐𝒖𝒔 𝒇𝒆𝒂𝒓𝒔 𝒘𝒊𝒕𝒉𝒐𝒖𝒕 𝒄𝒐𝒎𝒑𝒖𝒍𝒔𝒊𝒐𝒏 <span class='simplification'>(i.e. you aren't superstitious or obsessive about small details)</span>"
+            ],
+            "Ne": [
+                "𝒀𝒐𝒖 𝒇𝒆𝒆𝒍 𝒄𝒐𝒎𝒇𝒐𝒓𝒕𝒂𝒃𝒍𝒆 𝒊𝒏 𝒔𝒕𝒂𝒃𝒍𝒆, 𝒇𝒂𝒎𝒊𝒍𝒊𝒂𝒓 𝒔𝒊𝒕𝒖𝒂𝒕𝒊𝒐𝒏𝒔",
+                "𝒀𝒐𝒖 𝒈𝒆𝒕 𝒂𝒕𝒕𝒂𝒄𝒉𝒆𝒅 𝒕𝒐 𝒕𝒉𝒊𝒏𝒈𝒔 𝒐𝒓 𝒑𝒆𝒐𝒑𝒍𝒆 𝒐𝒏𝒄𝒆 𝒚𝒐𝒖 𝒄𝒉𝒐𝒐𝒔𝒆 𝒕𝒉𝒆𝒎",
+                "𝒀𝒐𝒖 𝒑𝒓𝒊𝒐𝒓𝒊𝒕𝒊𝒛𝒆 𝒑𝒓𝒂𝒄𝒕𝒊𝒄𝒂𝒍𝒊𝒕𝒚 𝒐𝒗𝒆𝒓 𝒄𝒉𝒂𝒔𝒊𝒏𝒈 𝒑𝒐𝒔𝒔𝒊𝒃𝒊𝒍𝒊𝒕𝒊𝒆𝒔",
+                "𝒀𝒐𝒖 𝒓𝒆𝒍𝒚 𝒐𝒏 𝒔𝒐𝒍𝒊𝒅 𝒓𝒆𝒂𝒔𝒐𝒏𝒊𝒏𝒈 𝒐𝒓 𝒄𝒐𝒏𝒔𝒊𝒔𝒕𝒆𝒏𝒕 𝒄𝒐𝒏𝒗𝒊𝒄𝒕𝒊𝒐𝒏𝒔 <span class='simplification'>(i.e. you prefer one truth over many possibilities)</span>",
+                "𝒀𝒐𝒖 𝒓𝒆𝒔𝒑𝒆𝒄𝒕 𝒔𝒐𝒄𝒊𝒂𝒍 𝒄𝒐𝒏𝒗𝒆𝒏𝒕𝒊𝒐𝒏𝒔 𝒂𝒏𝒅 𝒃𝒐𝒖𝒏𝒅𝒂𝒓𝒊𝒆𝒔",
+                "𝒀𝒐𝒖 𝒇𝒐𝒄𝒖𝒔 𝒐𝒏 𝒇𝒊𝒏𝒊𝒔𝒉𝒊𝒏𝒈 𝒑𝒓𝒐𝒋𝒆𝒄𝒕𝒔, 𝒏𝒐𝒕 𝒋𝒖𝒔𝒕 𝒔𝒕𝒂𝒓𝒕𝒊𝒏𝒈 𝒕𝒉𝒆𝒎",
+                "𝒀𝒐𝒖 𝒉𝒂𝒏𝒅𝒍𝒆 𝒓𝒆𝒍𝒂𝒕𝒊𝒐𝒏𝒔𝒉𝒊𝒑𝒔 𝒐𝒓 𝒂𝒕𝒕𝒂𝒄𝒉𝒎𝒆𝒏𝒕𝒔 𝒘𝒊𝒕𝒉 𝒄𝒂𝒓𝒆 𝒂𝒏𝒅 𝒔𝒕𝒂𝒃𝒊𝒍𝒊𝒕𝒚",
+                "𝒀𝒐𝒖 𝒂𝒄𝒄𝒆𝒑𝒕 𝒓𝒆𝒔𝒕𝒓𝒂𝒊𝒏𝒕 𝒐𝒓 𝒍𝒊𝒎𝒊𝒕𝒔 𝒇𝒓𝒐𝒎 𝒓𝒆𝒂𝒔𝒐𝒏 𝒂𝒏𝒅 𝒋𝒖𝒅𝒈𝒎𝒆𝒏𝒕𝒊𝒕𝒚 <span class='simplification'>(i.e. you accept 'no' if it makes logical sense)</span>",
+                "𝒀𝒐𝒖 𝒏𝒐𝒕𝒊𝒄𝒆 𝒂𝒏𝒅 𝒄𝒂𝒓𝒆 𝒂𝒃𝒐𝒖𝒕 𝒕𝒉𝒆 𝒑𝒓𝒂𝒄𝒕𝒊𝒄𝒂𝒍 𝒅𝒆𝒕𝒂𝒊𝒍𝒔 𝒐𝒇 𝒕𝒉𝒆 𝒑𝒓𝒆𝒔𝒆𝒏𝒕 𝒎𝒐𝒎𝒆𝒏𝒕",
+                "𝒀𝒐𝒖 𝒅𝒐𝒏'𝒕 𝒔𝒕𝒓𝒖𝒈𝒈𝒍𝒆 𝒘𝒊𝒕𝒉 𝒄𝒐𝒎𝒑𝒖𝒍𝒔𝒊𝒗𝒆, 𝒓𝒆𝒔𝒕𝒍𝒆𝒔𝒔 𝒐𝒗𝒆𝒓𝒕𝒉𝒊𝒏𝒌𝒊𝒏𝒈 𝒖𝒏𝒅𝒆𝒓 𝒔𝒕𝒓𝒆𝒔𝒔"
+            ],
+            "Ni": [
+                "𝒀𝒐𝒖 𝒔𝒕𝒂𝒚 𝒂𝒏𝒄𝒉𝒐𝒓𝒆𝒅 𝒕𝒐 𝒑𝒉𝒚𝒔𝒊𝒄𝒂𝒍 𝒓𝒆𝒂𝒍𝒊𝒕𝒚 <span class='simplification'>(i.e. you trust what you can touch and see, over what you envision)</span>",
+                "𝒀𝒐𝒖 𝒄𝒐𝒏𝒏𝒆𝒄𝒕 𝒊𝒅𝒆𝒂𝒔 𝒄𝒍𝒆𝒂𝒓𝒍𝒚 𝒕𝒐 𝒚𝒐𝒖𝒓𝒔𝒆𝒍𝒇 𝒂𝒏𝒅 𝒚𝒐𝒖𝒓 𝒍𝒊𝒇𝒆 <span class='simplification'>(i.e. you don't get lost in abstract visions that have nothing to do with you)</span>",
+                "𝒀𝒐𝒖'𝒓𝒆 𝒄𝒐𝒏𝒔𝒊𝒔𝒕𝒆𝒏𝒕𝒍𝒚 𝒂𝒘𝒂𝒓𝒆 𝒐𝒇 𝒚𝒐𝒖𝒓 𝒃𝒐𝒅𝒚 𝒂𝒏𝒅 𝒔𝒖𝒓𝒓𝒐𝒖𝒏𝒅𝒊𝒏𝒈𝒔 <span class='simplification'>(i.e. you don't bump into furniture or take a wrong turn because you were daydreaming)</span>",
+                "𝒀𝒐𝒖 𝒗𝒂𝒍𝒖𝒆 𝒑𝒓𝒂𝒄𝒕𝒊𝒄𝒂𝒍𝒊𝒕𝒚 𝒐𝒗𝒆𝒓 𝒔𝒚𝒎𝒃𝒐𝒍𝒊𝒄 𝒎𝒆𝒂𝒏𝒊𝒏𝒈",
+                "𝒀𝒐𝒖 𝒄𝒐𝒎𝒎𝒖𝒏𝒊𝒄𝒂𝒕𝒆 𝒘𝒊𝒕𝒉 𝒄𝒍𝒂𝒓𝒊𝒕𝒚 𝒂𝒏𝒅 𝒔𝒉𝒂𝒓𝒆𝒅 𝒍𝒂𝒏𝒈𝒖𝒂𝒈𝒆 <span class='simplification'>(i.e. you don't speak in riddles or metaphors)</span>",
+                "𝒀𝒐𝒖 𝒉𝒂𝒗𝒆 𝒏𝒐 𝒔𝒆𝒏𝒔𝒆 𝒐𝒇 𝒑𝒓𝒐𝒑𝒉𝒆𝒕𝒊𝒄 𝒐𝒓 𝒂𝒓𝒄𝒉𝒆𝒕𝒚𝒑𝒂𝒍 𝒑𝒂𝒕𝒕𝒆𝒓𝒏𝒔 <span class='simplification'>(i.e. you don't get random hunches about the future)</span>",
+                "𝒀𝒐𝒖 𝒇𝒐𝒄𝒖𝒔 𝒐𝒏 𝒄𝒖𝒓𝒓𝒆𝒏𝒕 𝒇𝒂𝒄𝒕𝒔, 𝒏𝒐𝒕 𝒇𝒖𝒕𝒖𝒓𝒆 𝒐𝒖𝒕𝒄𝒐𝒎𝒆𝒔",
+                "𝒀𝒐𝒖 𝒔𝒕𝒂𝒚 𝒇𝒍𝒆𝒙𝒊𝒃𝒍𝒆, 𝒏𝒐𝒕 𝒄𝒐𝒎𝒑𝒖𝒍𝒔𝒊𝒗𝒆, 𝒖𝒏𝒅𝒆𝒓 𝒔𝒕𝒓𝒆𝒔𝒔",
+                "𝒀𝒐𝒖 𝒔𝒆𝒆 𝒑𝒆𝒓𝒄𝒆𝒑𝒕𝒊𝒐𝒏 𝒂𝒔 𝒂 𝒎𝒐𝒓𝒂𝒍 𝒐𝒓 𝒔𝒐𝒄𝒊𝒂𝒍 𝒊𝒔𝒔𝒖𝒆 <span class='simplification'>(i.e. you judge things as 'good/bad' rather than observing them neutrally)</span>",
+                "𝒀𝒐𝒖 𝒑𝒖𝒓𝒔𝒖𝒆 𝒔𝒕𝒂𝒃𝒍𝒆, 𝒄𝒍𝒆𝒂𝒓 𝒈𝒐𝒂𝒍𝒔 𝒓𝒂𝒕𝒉𝒆𝒓 𝒕𝒉𝒂𝒏 𝒄𝒉𝒂𝒔𝒊𝒏𝒈 𝒗𝒊𝒔𝒊𝒐𝒏𝒔"
+            ]
+        };
+
+        // ============================================
+        // 2. THE LOGIC ENGINE
+        // ============================================
+
+        const container = document.getElementById('quiz-container');
+        let chartInstance = null;
+        let allQuestions = [];
+
+        // Flatten the database into a single array
+        for (const [func, questions] of Object.entries(database)) {
+            questions.forEach(qText => {
+                allQuestions.push({
+                    text: qText,
+                    target: func
+                });
+            });
+        }
+
+        // Fisher-Yates Shuffle
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        const shuffledQuestions = shuffleArray(allQuestions);
+
+        // Render
+        shuffledQuestions.forEach((qObj, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'question-item';
+            
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.dataset.target = qObj.target; 
+            
+            // Using innerHTML is critical here to render the <span> correctly
+            const textSpan = document.createElement('div');
+            textSpan.className = 'question-text';
+            textSpan.innerHTML = qObj.text; 
+
+            label.appendChild(checkbox);
+            label.appendChild(textSpan);
+            itemDiv.appendChild(label);
+            container.appendChild(itemDiv);
+        });
+
+        function calculateResults() {
+            let scores = { "Te": 0, "Ti": 0, "Fe": 0, "Fi": 0, "Se": 0, "Si": 0, "Ne": 0, "Ni": 0 };
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+            
+            checkboxes.forEach(box => {
+                const target = box.dataset.target;
+                if (scores.hasOwnProperty(target)) {
+                    scores[target] -= 1; 
+                }
+            });
+
+            renderChart(scores);
+        }
+
+        function renderChart(scores) {
+            document.getElementById('results-section').style.display = 'block';
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const labels = Object.keys(scores);
+            const realValues = Object.values(scores);
+            
+            // VISUAL HACK: Convert "Damage" (0 to -10) into "Health" (10 to 0)
+            const displayValues = realValues.map(val => 10 + val);
+
+            const backgroundColors = realValues.map(val => {
+                if(val > -3) return '#2ecc71'; // Green
+                if(val > -6) return '#f1c40f'; // Yellow
+                return '#e74c3c'; // Red
+            });
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Function Health',
+                        data: displayValues, 
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    scales: {
+                        x: {
+                            min: 0,
+                            max: 10,
+                            title: { display: true, text: 'Function Integrity (Full Bar = 0 Deductions)' },
+                            ticks: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const realScore = realValues[context.dataIndex];
+                                    return `Score: ${realScore} (Function: ${context.label})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('results-section').scrollIntoView({behavior: "smooth"});
+        }
+    </script>
+</body>
+</html>
